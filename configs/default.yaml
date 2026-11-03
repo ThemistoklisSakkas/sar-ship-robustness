@@ -1,0 +1,27 @@
+# Single source of truth for experiment parameters.
+# Phase-specific sections are added as each phase is implemented.
+
+seed: 42
+
+paths:
+  data_root: data          # on Colab, overridden to a Google Drive path
+  runs_root: runs
+
+dataset:
+  name: ssdd
+  num_classes: 1
+  class_names: [ship]
+
+model:
+  weights: yolo11n.pt      # baseline; larger model compared in phase 6
+
+train:
+  imgsz: 640
+  deterministic: true
+
+analysis:
+  # COCO-style area bins in pixels^2 (on the original image scale)
+  size_bins:
+    small: [0, 1024]       # < 32^2
+    medium: [1024, 9216]   # 32^2 .. 96^2
+    large: [9216, .inf]    # >= 96^2

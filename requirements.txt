@@ -1,0 +1,3 @@
+# Colab / full environment. pyproject.toml is the source of truth;
+# exact versions used for each run are recorded in RESULTS.md.
+-e .[train,viz,export]
