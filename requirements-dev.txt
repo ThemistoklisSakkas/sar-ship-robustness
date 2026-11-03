@@ -1,0 +1,2 @@
+# Local development (CPU only): core package + tests.
+-e .[viz,dev]

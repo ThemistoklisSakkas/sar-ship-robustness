@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sarship"
+version = "0.1.0"
+description = "SAR ship detection with YOLO and a field-robustness study under realistic image degradations"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "numpy>=1.26",
+    "pyyaml>=6",
+    "pillow>=10",
+    "opencv-python-headless>=4.9",
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+# Heavy deps only needed on Colab (GPU). Local tests run without them.
+train = ["ultralytics>=8.3", "pandas>=2.0"]
+viz = ["matplotlib>=3.8"]
+export = ["onnx>=1.16", "onnxruntime>=1.18"]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
