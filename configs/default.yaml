@@ -11,6 +11,8 @@ dataset:
   name: ssdd
   num_classes: 1
   class_names: [ship]
+  val_fraction: 0.15     # carved from the official train set only
+  min_box_size: 1.0      # px; thinner boxes are dropped and counted
 
 model:
   weights: yolo11n.pt      # baseline; larger model compared in phase 6

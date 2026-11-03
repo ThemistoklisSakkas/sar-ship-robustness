@@ -19,7 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 # Heavy deps only needed on Colab (GPU). Local tests run without them.
-train = ["ultralytics>=8.3", "pandas>=2.0"]
+train = ["ultralytics>=8.3", "pandas>=2.0", "gdown>=5"]
 viz = ["matplotlib>=3.8"]
 export = ["onnx>=1.16", "onnxruntime>=1.18"]
 dev = ["pytest>=8", "ruff>=0.5"]
