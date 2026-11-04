@@ -7,11 +7,13 @@ environment that produced it.
 
 | Item | Value |
 |---|---|
-| Training hardware | _TBD (Colab GPU type)_ |
-| Python | _TBD_ |
-| torch / CUDA | _TBD_ |
-| ultralytics | _TBD_ |
+| Training hardware | Google Colab, Tesla T4 (16 GB) |
+| Python | 3.13.16 |
+| torch / CUDA | 2.11.0+cu130 / 13.0 |
+| ultralytics | 8.4.202 |
 | Seed | 42 |
+
+Recorded 2026-11-04. Unit tests on Colab: 22 passed.
 
 ## Phase 1 — Dataset
 
