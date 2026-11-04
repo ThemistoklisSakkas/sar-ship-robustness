@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
+from pathlib import Path
+
 import numpy as np
 
 
@@ -22,6 +25,19 @@ def split_train_val(stems: list[str], val_fraction: float, seed: int) -> tuple[l
     return train, val
 
 
+def stratified_train_val(
+    groups: dict[str, str], val_fraction: float, seed: int
+) -> tuple[list, list]:
+    """Split {stem: group} so every group (e.g. inshore/offshore) keeps its ratio in val."""
+    train, val = [], []
+    for i, group in enumerate(sorted(set(groups.values()))):
+        stems = [s for s, g in groups.items() if g == group]
+        t, v = split_train_val(stems, val_fraction, seed + i)
+        train += t
+        val += v
+    return sorted(train), sorted(val)
+
+
 def assert_disjoint(**splits: list[str]) -> None:
     """Raise if any image stem appears in more than one split."""
     names = list(splits)
@@ -31,3 +47,19 @@ def assert_disjoint(**splits: list[str]) -> None:
             if common:
                 sample = sorted(common)[:5]
                 raise AssertionError(f"{len(common)} images in both {a} and {b}: {sample}")
+
+
+def file_md5(path: Path) -> str:
+    return hashlib.md5(Path(path).read_bytes()).hexdigest()
+
+
+def duplicate_content(paths_a: list[Path], paths_b: list[Path]) -> list[tuple[str, str]]:
+    """Pairs (name_a, name_b) whose bytes are identical: leakage that stems alone cannot catch."""
+    by_hash: dict[str, list[str]] = {}
+    for p in paths_a:
+        by_hash.setdefault(file_md5(p), []).append(Path(p).name)
+    dups = []
+    for p in paths_b:
+        for name_a in by_hash.get(file_md5(p), []):
+            dups.append((name_a, Path(p).name))
+    return dups
