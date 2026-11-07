@@ -61,7 +61,9 @@ def write_scene_lists(out: Path, split: str, scenes: dict[str, str]) -> None:
         )
 
 
-def stats_markdown(summary: dict, image_sizes: dict, duplicates: list) -> str:
+def stats_markdown(
+    summary: dict, image_sizes: dict, duplicates: list, excluded: list[str]
+) -> str:
     bins = list(next(iter(summary.values()))["size_bins"])
     head = ["subset", "images", "ships", "empty imgs", "max ships/img", *bins, "dropped boxes"]
     lines = ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
@@ -72,7 +74,10 @@ def stats_markdown(summary: dict, image_sizes: dict, duplicates: list) -> str:
     lines.append("")
     for split, (wmin, wmax, hmin, hmax) in image_sizes.items():
         lines.append(f"- {split} image size: width {wmin}–{wmax} px, height {hmin}–{hmax} px")
-    lines.append(f"- Byte-identical images shared between train and test: {len(duplicates)}")
+    lines.append(f"- Byte-identical train/test image pairs (official split): {len(duplicates)}")
+    for train_name, test_name in duplicates:
+        lines.append(f"  - train {train_name} == test {test_name}")
+    lines.append(f"- Train images excluded because of those duplicates: {len(excluded)}")
     return "\n".join(lines) + "\n"
 
 
@@ -88,11 +93,19 @@ def prepare_ssdd(cfg: dict, data_root: Path) -> dict:
     stems = {split: [img.stem for img, _ in p] for split, p in pairs.items()}
     scenes = {split: scene_labels(voc, split, stems[split]) for split in LAYOUT}
 
-    train_stems, val_stems = stratified_train_val(scenes["train"], ds["val_fraction"], seed)
-    assert_disjoint(train=train_stems, val=val_stems, test=stems["test"])
+    # The official split contains byte-identical train/test images. The test set
+    # stays official (comparable with the literature); the copies leave the train pool.
     duplicates = duplicate_content(
         [img for img, _ in pairs["train"]], [img for img, _ in pairs["test"]]
     )
+    excluded = sorted({Path(name).stem for name, _ in duplicates})
+    if ds["drop_train_test_duplicates"]:
+        train_pool = {s: g for s, g in scenes["train"].items() if s not in set(excluded)}
+    else:
+        excluded, train_pool = [], scenes["train"]
+
+    train_stems, val_stems = stratified_train_val(train_pool, ds["val_fraction"], seed)
+    assert_disjoint(train=train_stems, val=val_stems, test=stems["test"])
 
     train_set, val_set = set(train_stems), set(val_stems)
     split_pairs = {
@@ -121,10 +134,11 @@ def prepare_ssdd(cfg: dict, data_root: Path) -> dict:
         hs = [r["height"] for r in records if r["split"] == split]
         image_sizes[split] = (min(ws), max(ws), min(hs), max(hs))
 
-    md = stats_markdown(summary, image_sizes, duplicates)
+    md = stats_markdown(summary, image_sizes, duplicates, excluded)
     (out / "stats.md").write_text(md, encoding="utf-8")
     (out / "stats.json").write_text(json.dumps(
         {"summary": summary, "image_sizes": image_sizes, "duplicates": duplicates,
+         "excluded_train_stems": excluded,
          "seed": seed, "val_fraction": ds["val_fraction"]}, indent=2))
 
     figures = out / "figures"
@@ -144,7 +158,8 @@ def prepare_ssdd(cfg: dict, data_root: Path) -> dict:
              for split in split_pairs}
     save_size_histogram(areas, bins, figures / "size_hist.png")
 
-    return {"out": out, "yamls": yamls, "markdown": md, "duplicates": duplicates}
+    return {"out": out, "yamls": yamls, "markdown": md, "duplicates": duplicates,
+            "excluded": excluded}
 
 
 def main() -> None:
