@@ -5,6 +5,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+import cv2
 import numpy as np
 from PIL import Image
 
@@ -62,16 +63,55 @@ def with_image_size(ann: VocAnnotation, image_path: Path) -> VocAnnotation:
     return ann
 
 
+def colour_fraction(image: np.ndarray, threshold: int = 16) -> float:
+    """Fraction of pixels whose channels differ by more than `threshold` grey levels.
+
+    A grey image stored as RGB has R == G == B (up to small JPEG noise), so the
+    fraction is ~0. Pseudo-colour or colour composites give a clearly larger value.
+    """
+    if image.ndim == 2 or image.shape[2] == 1:
+        return 0.0
+    rgb = image[..., :3].astype(np.int16)
+    spread = rgb.max(axis=2) - rgb.min(axis=2)
+    return float((spread > threshold).mean())
+
+
+def export_image(
+    src: Path, dst_dir: Path, to_grayscale: bool, threshold: int, min_fraction: float
+) -> tuple[Path, float, bool]:
+    """Copy one image; colour images become single-channel PNG if `to_grayscale`.
+
+    PNG is lossless, so the conversion adds no second round of JPEG artefacts.
+    Returns (written path, colour fraction, is_colour).
+    """
+    image = cv2.imread(str(src), cv2.IMREAD_UNCHANGED)
+    if image is None:
+        raise FileNotFoundError(src)
+    fraction = colour_fraction(image, threshold)
+    is_colour = fraction > min_fraction
+    if is_colour and to_grayscale:
+        dst = dst_dir / f"{src.stem}.png"
+        cv2.imwrite(str(dst), cv2.cvtColor(image[..., :3], cv2.COLOR_BGR2GRAY))
+    else:
+        dst = dst_dir / src.name
+        shutil.copy2(src, dst)
+    return dst, fraction, is_colour
+
+
 def export_split(
     pairs: list[tuple[Path, Path]],
     out_root: Path,
     split: str,
     min_box_size: float = 1.0,
+    to_grayscale: bool = False,
+    colour_threshold: int = 16,
+    colour_min_fraction: float = 0.001,
 ) -> list[dict]:
     """Copy images and write YOLO labels for one split (single class 'ship' = 0).
 
     `pairs` is a list of (image_path, xml_path). Returns one record per image
-    (used later for statistics). Degenerate boxes are dropped and counted.
+    (used later for statistics). Degenerate boxes are dropped and counted;
+    colour images are detected and, if requested, converted to grayscale.
     """
     img_dir = out_root / "images" / split
     lbl_dir = out_root / "labels" / split
@@ -86,7 +126,9 @@ def export_split(
         yolo = xyxy_to_yolo(boxes, ann.width, ann.height)
         classes = np.zeros(len(yolo), dtype=int)
 
-        shutil.copy2(image_path, img_dir / image_path.name)
+        _, fraction, is_colour = export_image(
+            image_path, img_dir, to_grayscale, colour_threshold, colour_min_fraction
+        )
         (lbl_dir / f"{image_path.stem}.txt").write_text(format_yolo_lines(classes, yolo))
         records.append(
             {
@@ -96,6 +138,9 @@ def export_split(
                 "height": ann.height,
                 "boxes": boxes,
                 "dropped": int((~keep).sum()),
+                "source": image_path,
+                "colour_fraction": fraction,
+                "is_colour": is_colour,
             }
         )
     return records

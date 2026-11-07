@@ -26,7 +26,7 @@ from sarship.data.download import SSDD_DIRNAME
 from sarship.data.splits import assert_disjoint, duplicate_content, stratified_train_val
 from sarship.data.ssdd import LAYOUT, find_pairs, find_voc_root, scene_labels
 from sarship.data.stats import box_areas, summarize
-from sarship.data.viz import save_overlay_grid, save_size_histogram
+from sarship.data.viz import save_overlay_grid, save_pairs_grid, save_size_histogram
 from sarship.seed import make_rng
 
 SCENES = ("inshore", "offshore")
@@ -62,14 +62,20 @@ def write_scene_lists(out: Path, split: str, scenes: dict[str, str]) -> None:
 
 
 def stats_markdown(
-    summary: dict, image_sizes: dict, duplicates: list, excluded: list[str]
+    summary: dict,
+    image_sizes: dict,
+    duplicates: list,
+    excluded: list[str],
+    colour: list[dict],
+    to_grayscale: bool,
 ) -> str:
     bins = list(next(iter(summary.values()))["size_bins"])
-    head = ["subset", "images", "ships", "empty imgs", "max ships/img", *bins, "dropped boxes"]
+    head = ["subset", "images", "ships", "empty imgs", "max ships/img", *bins,
+            "dropped boxes", "colour imgs"]
     lines = ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
     for name, s in summary.items():
         row = [name, s["images"], s["ships"], s["empty_images"], s["max_ships_per_image"],
-               *s["size_bins"].values(), s["dropped_boxes"]]
+               *s["size_bins"].values(), s["dropped_boxes"], s["colour_images"]]
         lines.append("| " + " | ".join(str(v) for v in row) + " |")
     lines.append("")
     for split, (wmin, wmax, hmin, hmax) in image_sizes.items():
@@ -78,6 +84,11 @@ def stats_markdown(
     for train_name, test_name in duplicates:
         lines.append(f"  - train {train_name} == test {test_name}")
     lines.append(f"- Train images excluded because of those duplicates: {len(excluded)}")
+    action = "converted to grayscale (PNG)" if to_grayscale else "kept as they are"
+    lines.append(f"- Colour images found: {len(colour)}, {action}")
+    for c in colour:
+        pct = 100 * c["colour_fraction"]
+        lines.append(f"  - {c['split']} {c['stem']}: {pct:.1f}% of pixels coloured")
     return "\n".join(lines) + "\n"
 
 
@@ -117,7 +128,10 @@ def prepare_ssdd(cfg: dict, data_root: Path) -> dict:
 
     records = []
     for split, sp in split_pairs.items():
-        for rec in export_split(sp, out, split, ds["min_box_size"]):
+        for rec in export_split(
+            sp, out, split, ds["min_box_size"], ds["to_grayscale"],
+            ds["colour_threshold"], ds["colour_min_fraction"],
+        ):
             rec["scene"] = scene_of[rec["stem"]]
             records.append(rec)
 
@@ -134,11 +148,16 @@ def prepare_ssdd(cfg: dict, data_root: Path) -> dict:
         hs = [r["height"] for r in records if r["split"] == split]
         image_sizes[split] = (min(ws), max(ws), min(hs), max(hs))
 
-    md = stats_markdown(summary, image_sizes, duplicates, excluded)
+    colour_recs = sorted((r for r in records if r["is_colour"]),
+                         key=lambda r: (r["split"], r["stem"]))
+    colour = [{"split": r["split"], "stem": r["stem"], "colour_fraction": r["colour_fraction"]}
+              for r in colour_recs]
+    md = stats_markdown(summary, image_sizes, duplicates, excluded, colour, ds["to_grayscale"])
     (out / "stats.md").write_text(md, encoding="utf-8")
     (out / "stats.json").write_text(json.dumps(
         {"summary": summary, "image_sizes": image_sizes, "duplicates": duplicates,
-         "excluded_train_stems": excluded,
+         "excluded_train_stems": excluded, "colour_images": colour,
+         "to_grayscale": ds["to_grayscale"],
          "seed": seed, "val_fraction": ds["val_fraction"]}, indent=2))
 
     figures = out / "figures"
@@ -157,9 +176,15 @@ def prepare_ssdd(cfg: dict, data_root: Path) -> dict:
     areas = {split: np.concatenate([box_areas(r["boxes"]) for r in records if r["split"] == split])
              for split in split_pairs}
     save_size_histogram(areas, bins, figures / "size_hist.png")
+    if colour_recs:
+        # Raw images before conversion, so the colour detection itself can be eyeballed.
+        raw_pairs = [(r["source"], out / "labels" / r["split"] / f"{r['stem']}.txt")
+                     for r in colour_recs[:n]]
+        save_pairs_grid(raw_pairs, figures / "colour_images_raw.png",
+                        title="colour images as released (before grayscale conversion)")
 
     return {"out": out, "yamls": yamls, "markdown": md, "duplicates": duplicates,
-            "excluded": excluded}
+            "excluded": excluded, "colour": colour}
 
 
 def main() -> None:

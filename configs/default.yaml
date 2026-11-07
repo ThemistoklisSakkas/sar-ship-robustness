@@ -16,6 +16,9 @@ dataset:
   raw_subdir: BBox_SSDD/voc_style   # horizontal boxes, VOC XML
   yolo_dirname: ssdd_yolo
   drop_train_test_duplicates: true   # remove train copies of test images (leakage)
+  to_grayscale: true     # SAR is single-channel: colour images are converted
+  colour_threshold: 16   # grey levels between channels that count as colour
+  colour_min_fraction: 0.001   # image is colour if > 0.1% of pixels are coloured
   viz_samples: 8         # images per grid in the visual checks
 
 model:
