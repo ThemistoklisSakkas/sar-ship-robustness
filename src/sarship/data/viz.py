@@ -45,19 +45,27 @@ def render_label_overlay(image_path: Path, label_path: Path) -> np.ndarray:
 def save_overlay_grid(
     image_paths: list[Path], label_root: Path, out_path: Path, cols: int = 4, title: str = ""
 ) -> Path:
-    """Grid of images with their YOLO boxes drawn, saved as PNG."""
+    """Grid of images with their YOLO boxes (from `label_root/<stem>.txt`), saved as PNG."""
+    pairs = [(p, label_root / f"{p.stem}.txt") for p in image_paths]
+    return save_pairs_grid(pairs, out_path, cols, title)
+
+
+def save_pairs_grid(
+    pairs: list[tuple[Path, Path]], out_path: Path, cols: int = 4, title: str = ""
+) -> Path:
+    """Grid of (image, YOLO label file) pairs with the boxes drawn, saved as PNG."""
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    rows = int(np.ceil(len(image_paths) / cols))
+    rows = max(1, int(np.ceil(len(pairs) / cols)))
     fig, axes = plt.subplots(rows, cols, figsize=(4 * cols, 4 * rows), squeeze=False)
     for ax in axes.flat:
         ax.axis("off")
-    for ax, img_path in zip(axes.flat, image_paths, strict=False):
-        overlay = render_label_overlay(img_path, label_root / f"{img_path.stem}.txt")
-        n = len(read_yolo_labels(label_root / f"{img_path.stem}.txt")[0])
+    for ax, (img_path, label_path) in zip(axes.flat, pairs, strict=False):
+        overlay = render_label_overlay(img_path, label_path)
+        n = len(read_yolo_labels(label_path)[0])
         ax.imshow(cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB))
         ax.set_title(f"{img_path.stem}  ({n} ships)", fontsize=9)
     if title:

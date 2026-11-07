@@ -41,6 +41,7 @@ def summarize(records: list[dict], bins: dict[str, list[float]]) -> dict[str, di
             "empty_images": int((counts == 0).sum()),
             "max_ships_per_image": int(counts.max()) if len(counts) else 0,
             "dropped_boxes": int(sum(r.get("dropped", 0) for r in recs)),
+            "colour_images": int(sum(bool(r.get("is_colour", False)) for r in recs)),
             "size_bins": {name: int(cats.get(name, 0)) for name in bins},
         }
     return summary

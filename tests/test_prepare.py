@@ -132,3 +132,27 @@ def test_train_copy_of_test_image_is_excluded(tmp_path, cfg):
     kept = {p.stem for s in ("train", "val") for p in (out / "images" / s).iterdir()}
     assert "000099" not in kept and len(kept) == 20
     assert "train 000099.jpg == test 001003.jpg" in report["markdown"]
+
+
+def test_colour_image_is_counted_converted_and_listed(tmp_path, cfg):
+    voc = make_fake_ssdd(tmp_path, n_train=20, n_test=10)
+    grey = np.asarray(Image.open(voc / "JPEGImages_test" / "001000.jpg"))
+    rgb = np.dstack([grey, grey, grey])
+    rgb[:30, :30] = (255, 220, 0)  # yellow patch, like the pseudo-colour in SSDD 000069
+    Image.fromarray(rgb).save(voc / "JPEGImages_test" / "001000.jpg", quality=95)
+
+    report = prepare_ssdd(cfg, tmp_path)
+    out = report["out"]
+    assert [c["stem"] for c in report["colour"]] == ["001000"]
+    converted = out / "images" / "test" / "001000.png"
+    assert converted.exists() and Image.open(converted).mode == "L"
+    assert not (out / "images" / "test" / "001000.jpg").exists()
+    listed = (out / "test_inshore.txt").read_text()  # 001000 is inshore (i % 4 == 0)
+    assert "./images/test/001000.png" in listed
+    assert "Colour images found: 1, converted to grayscale" in report["markdown"]
+    assert (out / "figures" / "colour_images_raw.png").stat().st_size > 0
+
+
+def test_fake_grey_dataset_has_no_colour_images(tmp_path, cfg):
+    make_fake_ssdd(tmp_path, n_train=8, n_test=4)
+    assert prepare_ssdd(cfg, tmp_path)["colour"] == []
