@@ -115,3 +115,20 @@ def test_prepare_is_deterministic(tmp_path, cfg):
         return sorted(p.name for p in (prepare_ssdd(cfg, tmp_path)["out"] / "images/val").iterdir())
 
     assert val_names() == val_names()
+
+
+def test_train_copy_of_test_image_is_excluded(tmp_path, cfg):
+    voc = make_fake_ssdd(tmp_path, n_train=20, n_test=10)
+    # plant a leak: test image 001003 also appears in train under a new name
+    test_img = voc / "JPEGImages_test" / "001003.jpg"
+    shutil.copy(test_img, voc / "JPEGImages_train" / "000099.jpg")
+    shutil.copy(test_img, voc / "JPEGImages_train_offshore" / "000099.jpg")
+    shutil.copy(voc / "Annotations_test" / "001003.xml", voc / "Annotations_train" / "000099.xml")
+
+    report = prepare_ssdd(cfg, tmp_path)
+    out = report["out"]
+    assert report["duplicates"] == [("000099.jpg", "001003.jpg")]
+    assert report["excluded"] == ["000099"]
+    kept = {p.stem for s in ("train", "val") for p in (out / "images" / s).iterdir()}
+    assert "000099" not in kept and len(kept) == 20
+    assert "train 000099.jpg == test 001003.jpg" in report["markdown"]
