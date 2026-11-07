@@ -26,7 +26,35 @@ model:
 
 train:
   imgsz: 640
+  epochs: 100
+  batch: 16
+  patience: 30           # early stop if val fitness does not improve for 30 epochs
+  optimizer: auto        # Ultralytics picks SGD/AdamW and lr from the run length
+  workers: 2             # Colab has 2 CPU cores
+  close_mosaic: 10       # last 10 epochs without mosaic, on "real-looking" images
   deterministic: true
+  # Augmentation: Ultralytics defaults, except the colour jitter, which has no
+  # physical meaning for single-channel SAR (hue/saturation of a grey image).
+  augment:
+    hsv_h: 0.0
+    hsv_s: 0.0
+    hsv_v: 0.4           # brightness/gain variation: plausible for SAR calibration
+    degrees: 0.0
+    translate: 0.1
+    scale: 0.5
+    fliplr: 0.5
+    flipud: 0.0
+    mosaic: 1.0
+    mixup: 0.0
+
+eval:
+  conf: 0.001            # keep almost all boxes: AP integrates over every threshold
+  iou_nms: 0.7           # NMS IoU threshold (Ultralytics default)
+  batch: 16
+  examples:              # good/bad prediction grids on the test set
+    conf: 0.25           # a realistic operating threshold for "what an operator sees"
+    iou_match: 0.5       # TP if IoU >= 0.5 with an unmatched ground-truth box
+    n: 8
 
 analysis:
   # COCO-style area bins in pixels^2 (on the original image scale)
