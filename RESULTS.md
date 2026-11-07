@@ -41,7 +41,25 @@ Size bins are COCO-style on the original image scale: small < 32², medium < 96�
 - Only exact duplicates are detected; near-duplicates (overlapping crops of one scene) are
   not, so a residual optimistic bias is possible. Documented as a limitation.
 
-**Train/val (after duplicate removal):** _to be filled from the re-run._
+**Train/val (after duplicate removal, final):**
+
+| subset | images | ships | small | medium | large | max ships/img |
+|---|---|---|---|---|---|---|
+| train | 778 | 1688 | 1055 | 591 | 42 | 29 |
+| train/inshore | 151 | 452 | 248 | 180 | 24 | 11 |
+| train/offshore | 627 | 1236 | 807 | 411 | 18 | 29 |
+| val | 138 | 307 | 199 | 103 | 5 | 27 |
+| val/inshore | 27 | 59 | 34 | 21 | 4 | 10 |
+| val/offshore | 111 | 248 | 165 | 82 | 1 | 27 |
+
+**Conversion cross-check** against the release's own COCO files: train.json 928 images /
+2041 ships (ours before exclusion: 1760 + 281 = 2041), test.json 232 / 546,
+test_inshore.json 46 / 172, test_offshore.json 186 / 374 — all identical. 0 boxes dropped.
+
+**Duplicate pairs (train == test):** 000093=000001, 000227=000011, 000456=000229,
+000033=000389, 000637=000389, 000502=000501, 000006=000631, 000237=000639, 000634=000639,
+000243=000641, 001108=000739, 001122=001121. 10 distinct test images are affected; two of
+them have two copies in train. Changing the train pool changes the val draw (same seed).
 
 ## Phase 2 — Baseline
 
