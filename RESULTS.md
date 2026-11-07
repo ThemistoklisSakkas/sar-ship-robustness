@@ -61,6 +61,20 @@ test_inshore.json 46 / 172, test_offshore.json 186 / 374 — all identical. 0 bo
 000243=000641, 001108=000739, 001122=001121. 10 distinct test images are affected; two of
 them have two copies in train. Changing the train pool changes the val draw (same seed).
 
+**Colour images:** SAR is single-channel, but 25 of 1148 used images (2.2%) contain
+pseudo-colour pixels (channel spread > 16 grey levels in > 0.1% of pixels):
+train 19, val 2, test 4 (000051, 000061, 000069, 000911). Coloured share ranges
+0.2%–13.0% of pixels (000069 is the strongest). All 25 are exported as single-channel
+lossless PNG (`to_grayscale: true`); grey images are copied byte-for-byte. Detection
+was checked visually on the raw images (`figures/colour_images_raw.png`).
+
+**Scene-leakage indicator:** 22 of the 25 colour images have consecutive ids
+000046–000070, i.e. they are very likely crops of the same acquisition, and they are
+spread over train, val and test by the official index-based split. This supports the
+near-duplicate limitation above: neighbouring crops of one scene can sit on both sides
+of the train/test boundary, so test results are likely somewhat optimistic.
+SSDD provides no scene ids, so a scene-grouped split is not possible here.
+
 ## Phase 2 — Baseline
 
 _TBD_
