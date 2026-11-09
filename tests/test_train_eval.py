@@ -109,3 +109,22 @@ def test_prediction_grid_renders(tmp_path):
             "matched": np.array([True, False]), "pred": np.array([[5, 5, 21, 20], [0, 0, 3, 3]]),
             "tp": np.array([True, False]), "n_tp": 1, "n_fp": 1, "n_fn": 1}
     assert save_prediction_grid([item], tmp_path / "grid.png", "t").stat().st_size > 0
+
+
+def test_fresh_run_refuses_to_overwrite_existing_weights(cfg, tmp_path):
+    from sarship.train import train
+
+    weights = tmp_path / "runs" / "baseline" / "weights"
+    weights.mkdir(parents=True)
+    (weights / "last.pt").write_bytes(b"94 epochs of work")
+    with pytest.raises(RuntimeError, match="already has weights"):
+        train(cfg, tmp_path, tmp_path / "runs", "baseline")
+    assert (weights / "last.pt").read_bytes() == b"94 epochs of work"
+
+
+def test_resume_without_checkpoint_fails(cfg, tmp_path):
+    from sarship.train import check_run_dir
+
+    with pytest.raises(RuntimeError, match="does not exist"):
+        check_run_dir(tmp_path / "runs" / "x", resume=True, overwrite=False)
+    check_run_dir(tmp_path / "runs" / "x", resume=False, overwrite=False)  # new run is fine

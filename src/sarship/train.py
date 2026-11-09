@@ -79,18 +79,58 @@ def environment_info() -> dict:
     return info
 
 
-def train(cfg: dict, data_root: Path, runs_root: Path, name: str, resume: bool = False) -> Path:
-    """Train (or resume) and return the run directory."""
-    from ultralytics import YOLO
+def check_run_dir(run_dir: Path, resume: bool, overwrite: bool) -> None:
+    """Refuse actions that would silently destroy or fake a training run.
 
-    set_seed(cfg["seed"], cfg["train"]["deterministic"])
+    A fresh run into a folder that already holds weights would overwrite them after
+    the first epoch; --resume without a checkpoint would silently start from scratch.
+    """
+    last = run_dir / "weights" / "last.pt"
+    if resume and not last.exists():
+        raise RuntimeError(f"--resume given but {last} does not exist")
+    if not resume and last.exists() and not overwrite:
+        raise RuntimeError(
+            f"{run_dir} already has weights. Use --resume to continue that run, "
+            "--name for a new run, or --overwrite to replace it on purpose."
+        )
+
+
+def require_gpu() -> None:
+    """Training on Colab's CPU takes ~20 min per epoch: fail fast instead."""
+    try:
+        import torch
+    except ImportError as err:
+        raise RuntimeError("PyTorch is not installed") from err
+    if not torch.cuda.is_available():
+        raise RuntimeError(
+            "No GPU available (Colab: Runtime > Change runtime type > T4 GPU). "
+            "Use --allow-cpu only for a tiny smoke test."
+        )
+
+
+def train(
+    cfg: dict,
+    data_root: Path,
+    runs_root: Path,
+    name: str,
+    resume: bool = False,
+    overwrite: bool = False,
+    allow_cpu: bool = False,
+) -> Path:
+    """Train (or resume) and return the run directory."""
+    run_dir = runs_root / name
+    last = run_dir / "weights" / "last.pt"
+    check_run_dir(run_dir, resume, overwrite)
     data_yaml = data_root / cfg["dataset"]["yolo_dirname"] / "ssdd.yaml"
     if not data_yaml.exists():
         raise FileNotFoundError(f"{data_yaml} not found: run `python -m sarship.data.prepare`")
-    run_dir = runs_root / name
-    last = run_dir / "weights" / "last.pt"
+    if not allow_cpu:
+        require_gpu()
 
-    if resume and last.exists():
+    from ultralytics import YOLO
+
+    set_seed(cfg["seed"], cfg["train"]["deterministic"])
+    if resume:
         print(f"Resuming from {last}")
         YOLO(str(last)).train(resume=True)
     else:
@@ -111,11 +151,18 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--name", default=None, help="run name (default: baseline_<model>)")
     parser.add_argument("--resume", action="store_true", help="continue from weights/last.pt")
+    parser.add_argument("--overwrite", action="store_true",
+                        help="start a fresh run even if the run folder already has weights")
+    parser.add_argument("--allow-cpu", action="store_true", help="permit training without GPU")
     parser.add_argument("--set", nargs="*", default=[], metavar="KEY=VALUE")
     args = parser.parse_args()
     cfg = load_config(args.config, args.set)
-    run_dir = train(cfg, args.data_root, args.runs_root, args.name or default_run_name(cfg),
-                    args.resume)
+    try:
+        run_dir = train(cfg, args.data_root, args.runs_root,
+                        args.name or default_run_name(cfg), args.resume, args.overwrite,
+                        args.allow_cpu)
+    except RuntimeError as err:
+        raise SystemExit(f"STOPPED: {err}") from err
     print(f"Run directory: {run_dir}")
 
 
