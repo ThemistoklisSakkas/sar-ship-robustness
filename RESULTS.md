@@ -102,6 +102,13 @@ recall 0.978, precision 0.905, 0.24 false alarms per image.
 train 0.855 / val 0.890; val box loss was still at its minimum at epoch 100 → no sign of
 overfitting, the model may even gain slightly from longer training.
 
+**Training curves** (`evaluation/training_curves.png`): train and val loss track each other
+for all 100 epochs (no divergence). mAP@0.5 saturates near 0.98–0.99 by epoch ~20, while
+mAP@0.5:0.95 keeps rising slowly to the end: detection is learnt early, box precision late.
+The visible drop in train loss after epoch 90 is `close_mosaic` (no mosaic → easier batches).
+Val P/R fluctuate by ±1–2 points between epochs (307 val ships: one ship = 0.3 points),
+so "best epoch 93" vs epoch 100 is within noise.
+
 **Reproducibility check:** an earlier run with the same config and seed (lost after epoch 94,
 see below) had val mAP@0.5 0.993 / mAP@0.5:0.95 0.742 at epoch 93; this run has
 0.993 / 0.742 at epoch 93. GPU non-determinism did not change the result at 3 decimals.
