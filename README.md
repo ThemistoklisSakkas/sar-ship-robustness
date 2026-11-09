@@ -18,7 +18,7 @@ training set. This project quantifies that.
 
 - [x] 0. Concepts (detection, YOLO, IoU, NMS, P/R, mAP, SAR specifics)
 - [x] 1. Data: SSDD download, licence, VOC→YOLO conversion, visual checks, statistics, leakage checks
-- [ ] 2. Baseline training (YOLO11n), curves, held-out test evaluation
+- [x] 2. Baseline training (YOLO11n), curves, held-out test evaluation
 - [ ] 3. Error analysis by ship size, inshore/offshore, dense groups, false alarms
 - [ ] 4. Field-robustness study: degradation functions × severity → robustness curves
 - [ ] 5. Robust training with degradation-aware augmentation

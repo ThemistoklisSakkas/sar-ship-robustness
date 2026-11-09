@@ -77,7 +77,49 @@ SSDD provides no scene ids, so a scene-grouped split is not possible here.
 
 ## Phase 2 — Baseline
 
-_TBD_
+Model YOLO11n (2.59 M params, COCO-pretrained), imgsz 640, 100 epochs, batch 16,
+optimizer auto (AdamW lr 0.002), seed 42, Ultralytics default augmentation with hue and
+saturation jitter disabled. Run `baseline_yolo11n`, ultralytics 8.4.208, torch 2.14.1+cu130,
+Tesla T4. Weights: `best.pt` (selected on val).
+
+**Detection metrics** (conf 0.001, NMS IoU 0.7):
+
+| subset | P | R | mAP@0.5 | mAP@0.5:0.95 |
+|---|---|---|---|---|
+| val | 0.971 | 0.979 | 0.993 | 0.743 |
+| **test** | **0.956** | **0.952** | **0.987** | **0.709** |
+| test/inshore | 0.878 | 0.913 | 0.949 | 0.636 |
+| test/offshore | 0.984 | 0.991 | 0.993 | 0.738 |
+
+P/R are Ultralytics' values at the max-F1 confidence. Timings printed by `val` are not
+reported here: images were read from mounted Google Drive, so I/O dominates; inference speed
+is measured properly in phase 6.
+
+**Operating point** on test (conf ≥ 0.25, TP if IoU ≥ 0.5): TP 534, FP 56, FN 12 →
+recall 0.978, precision 0.905, 0.24 false alarms per image.
+
+**Training:** 100 epochs ran, best val mAP@0.5:0.95 = 0.742 at epoch 93; final box loss
+train 0.855 / val 0.890; val box loss was still at its minimum at epoch 100 → no sign of
+overfitting, the model may even gain slightly from longer training.
+
+**Reproducibility check:** an earlier run with the same config and seed (lost after epoch 94,
+see below) had val mAP@0.5 0.993 / mAP@0.5:0.95 0.742 at epoch 93; this run has
+0.993 / 0.742 at epoch 93. GPU non-determinism did not change the result at 3 decimals.
+
+**Observations from the example grids** (`evaluation/examples_good.png`, `examples_bad.png`):
+- Errors are mostly false alarms, not misses (56 FP vs 12 FN at conf 0.25).
+- False alarms cluster on bright coastal structures (quays, breakwaters, buildings) —
+  inshore precision 0.878 vs offshore 0.984.
+- Misses happen at dense berths, where ships moored side by side get one merged box
+  (e.g. test 001089, 000219) — the NMS/overlap case from phase 0.
+- Some "false alarms" sit on bright objects at the image border or small isolated points;
+  some may be unlabelled vessels (annotation omissions). To be inspected in phase 3.
+- val → test drop (0.743 → 0.709 mAP@0.5:0.95) is expected: val was used for model selection.
+
+**Incident:** the first baseline run (94/100 epochs) was overwritten when a fresh run was
+started on a CPU-only runtime in the same folder. `train.py` now refuses to overwrite a run
+with weights (needs `--resume`, a new `--name` or `--overwrite`) and refuses to train without
+a GPU. The run above is a clean, uninterrupted 100-epoch run.
 
 ## Phase 3 — Error analysis
 
