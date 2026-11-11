@@ -57,12 +57,22 @@ def equivalence(map_pt: dict, map_onnx: dict, tolerance: float) -> dict:
             "diff_map50_95": diff, "tolerance": tolerance, "ok": abs(diff) <= tolerance}
 
 
-def model_info(weights: Path) -> dict:
+def model_info(weights: Path, imgsz: int) -> dict:
+    """Parameters counted directly from the network; GFLOPs via Ultralytics if available.
+
+    (`YOLO.info(verbose=False)` returns None in Ultralytics 8.4, so it is not used.)
+    """
     from ultralytics import YOLO
 
-    model = YOLO(str(weights))
-    _, params, _, gflops = model.info(verbose=False)
-    return {"params_m": params / 1e6, "gflops": float(gflops),
+    net = YOLO(str(weights)).model
+    params = sum(p.numel() for p in net.parameters())
+    try:
+        from ultralytics.utils.torch_utils import get_flops
+
+        gflops = float(get_flops(net, imgsz))
+    except Exception:  # GFLOPs are informative only; never fail the benchmark on them
+        gflops = float("nan")
+    return {"params_m": params / 1e6, "gflops": gflops,
             "pt_mb": weights.stat().st_size / 2**20}
 
 
@@ -107,7 +117,7 @@ def benchmark_run(name: str, runs_root: Path, items: list[dict], cfg: dict) -> d
     b = cfg["benchmark"]
     pt = runs_root / name / "weights" / "best.pt"
     gpu = "0" if torch.cuda.is_available() else None
-    row = {"name": name, **model_info(pt)}
+    row = {"name": name, **model_info(pt, cfg["train"]["imgsz"])}
     onnx = export_onnx(pt, cfg["train"]["imgsz"])
     row["onnx_mb"] = onnx.stat().st_size / 2**20
     row["accuracy"] = accuracy_from_robustness(runs_root / name / "robustness" /
