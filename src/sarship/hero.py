@@ -94,7 +94,10 @@ def make_hero(items: list[dict], runs_root: Path, cfg: dict, out_path: Path,
                                  image_rng(cfg["seed"], condition, item["stem"]))
     param = cfg["robustness"]["degradations"][name]["param"]
 
-    fig, axes = plt.subplots(2, 2, figsize=(11, 11 * clean.shape[0] / clean.shape[1] + 1.2))
+    # each panel is ~5.4 in wide; reserve room for a two-line title above every image,
+    # the figure title and the footnote, so titles never overlap the row above
+    panel_h = 5.4 * clean.shape[0] / clean.shape[1]
+    fig, axes = plt.subplots(2, 2, figsize=(11, 2 * (panel_h + 0.75) + 1.3))
     for row, (who, label) in enumerate((("baseline", "Baseline YOLO11n"),
                                         ("robust", "Degradation-aware YOLO11n"))):
         for col, (state, img, title) in enumerate((
@@ -111,7 +114,7 @@ def make_hero(items: list[dict], runs_root: Path, cfg: dict, out_path: Path,
     note = (f"Illustrative SSDD test image {item['stem']}, chosen automatically to show the "
             "effect. Full-test-set results: RESULTS.md.")
     fig.text(0.5, 0.005, note, ha="center", fontsize=9, color="#555555")
-    fig.tight_layout(rect=(0, 0.02, 1, 0.97))
+    fig.tight_layout(rect=(0, 0.03, 1, 0.93), h_pad=2.0)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, dpi=110)
     plt.close(fig)
