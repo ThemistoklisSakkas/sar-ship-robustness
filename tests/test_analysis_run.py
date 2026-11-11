@@ -6,14 +6,9 @@ import cv2
 import numpy as np
 import pytest
 
-from sarship.analysis.run import (
-    analyse,
-    build_images,
-    load_split,
-    predict_cached,
-    weights_signature,
-)
+from sarship.analysis.run import analyse, build_images, load_split, predict_cached
 from sarship.config import load_config
+from sarship.predict import prediction_signature
 
 
 @pytest.fixture
@@ -65,8 +60,7 @@ def test_full_analysis_from_cached_predictions(tmp_path, cfg):
     weights = tmp_path / "best.pt"
     weights.write_bytes(b"w")
     cache = tmp_path / "analysis" / "predictions_test.json"
-    signature = {**weights_signature(weights), "conf": cfg["analysis"]["predict_conf"],
-                 "iou": cfg["eval"]["iou_nms"], "imgsz": cfg["train"]["imgsz"]}
+    signature = prediction_signature(weights, cfg)
     cache.parent.mkdir()
     cache.write_text(json.dumps({"signature": signature, "predictions": fake_predictions(items)}))
     preds = predict_cached(weights, items, cfg, cache)  # cache hit: no ultralytics needed

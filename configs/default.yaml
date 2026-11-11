@@ -68,3 +68,14 @@ analysis:
   bootstrap_resamples: 1000
   bootstrap_ci: 0.95
   gallery_n: 24          # crops per error gallery
+
+robustness:
+  # Five severity levels per degradation, mildest first; "clean" is always added.
+  degradations:
+    speckle:    {param: looks,   values: [16, 8, 4, 2, 1]}         # fewer looks = more speckle
+    blur:       {param: sigma,   values: [0.5, 1.0, 1.5, 2.0, 3.0]}  # px
+    contrast:   {param: factor,  values: [0.8, 0.6, 0.4, 0.3, 0.2]}  # 1 = unchanged
+    resolution: {param: factor,  values: [1.5, 2, 3, 4, 6]}         # x coarser sampling
+    jpeg:       {param: quality, values: [50, 30, 20, 10, 5]}
+  bootstrap_resamples: 300  # CI on the overall curve only (time budget on CPU)
+  relative_drop: 0.10       # "breaking point": first level losing >10% of clean mAP

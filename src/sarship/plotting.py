@@ -187,3 +187,93 @@ def plot_recall_by_size(
     fig.savefig(out_path, dpi=110)
     plt.close(fig)
     return out_path
+
+
+def plot_robustness_curves(report: dict, cfg: dict, out_path: Path) -> Path:
+    """One panel per degradation (mAP vs severity, CI band) plus an overlay of relative mAP."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    res = report["results"]
+    clean = res["clean"]
+    degradations = cfg["robustness"]["degradations"]
+    fig, axes = plt.subplots(2, 3, figsize=(16, 9))
+    overlay = axes.flat[5]
+
+    for k, (ax, (name, spec)) in enumerate(zip(axes.flat, degradations.items(), strict=False)):
+        ids = ["clean"] + [f"{name}_{float(v):g}" for v in spec["values"]]
+        x = np.arange(len(ids))
+        b = [res[i]["all"]["map50_95"] for i in ids]
+        point = np.array([m["point"] for m in b])
+        ax.fill_between(x, [m["low"] for m in b], [m["high"] for m in b], alpha=0.2, color="C0")
+        ax.plot(x, point, "o-", color="C0", label="mAP@0.5:0.95 (95% CI)")
+        ax.plot(x, [res[i]["all"]["map50"]["point"] for i in ids], "s--", color="C3",
+                label="mAP@0.5")
+        for scene, colour in (("inshore", "C1"), ("offshore", "C2")):
+            ax.plot(x, [res[i][scene]["map50_95"]["point"] for i in ids], ":", color=colour,
+                    label=f"{scene} mAP@0.5:0.95")
+        ax.set_xticks(x, ["clean"] + [f"{v:g}" for v in spec["values"]])
+        ax.set_xlabel(f"{spec['param']} (severity increases to the right)")
+        ax.set_title(name)
+        ax.set_ylim(0, 1.02)
+        ax.grid(alpha=0.3)
+        if k == 0:
+            ax.legend(fontsize=8, loc="lower left")
+        overlay.plot(x, point / clean["all"]["map50_95"]["point"], "o-", label=name)
+
+    overlay.axhline(1 - cfg["robustness"]["relative_drop"], color="k", ls="--", lw=1,
+                    label=f"-{int(100 * cfg['robustness']['relative_drop'])}%")
+    overlay.set_title("All degradations: mAP@0.5:0.95 relative to clean")
+    overlay.set_xlabel("severity level (0 = clean)")
+    overlay.set_ylim(0, 1.05)
+    overlay.grid(alpha=0.3)
+    overlay.legend(fontsize=8, loc="lower left")
+    fig.tight_layout()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=110)
+    plt.close(fig)
+    return out_path
+
+
+def plot_degradation_examples(items: list[dict], cfg: dict, out_path: Path,
+                              crop: int = 192) -> Path:
+    """What each severity level looks like: one image chip, rows = degradations."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    from sarship.degrade import apply_degradation
+    from sarship.robustness import condition_id, image_rng
+
+    offshore = [it for it in items if it["scene"] == "offshore" and len(it["gt"])] or items
+    item = max(offshore, key=lambda it: len(it["gt"]))
+    img = cv2.imread(str(item["path"]), cv2.IMREAD_GRAYSCALE)
+    h, w = img.shape
+    x1, y1, x2, y2 = item["gt"][0]
+    left = int(np.clip((x1 + x2) / 2 - crop / 2, 0, max(0, w - crop)))
+    top = int(np.clip((y1 + y2) / 2 - crop / 2, 0, max(0, h - crop)))
+
+    degradations = cfg["robustness"]["degradations"]
+    cols = 1 + max(len(s["values"]) for s in degradations.values())
+    fig, axes = plt.subplots(len(degradations), cols, figsize=(2.3 * cols, 2.5 * len(degradations)),
+                             squeeze=False)
+    for row, (name, spec) in zip(axes, degradations.items(), strict=True):
+        for ax in row:
+            ax.axis("off")
+        row[0].imshow(img[top:top + crop, left:left + crop], cmap="gray", vmin=0, vmax=255)
+        row[0].set_title(f"{name}: clean", fontsize=9)
+        for ax, v in zip(row[1:], spec["values"], strict=False):
+            cid = condition_id(name, float(v))
+            out = apply_degradation(name, img, float(v),
+                                    image_rng(cfg["seed"], cid, item["stem"]))
+            ax.imshow(out[top:top + crop, left:left + crop], cmap="gray", vmin=0, vmax=255)
+            ax.set_title(f"{spec['param']}={float(v):g}", fontsize=9)
+    fig.suptitle(f"Degradation ladder on test image {item['stem']} (crop {crop}x{crop} px)")
+    fig.tight_layout()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=110)
+    plt.close(fig)
+    return out_path

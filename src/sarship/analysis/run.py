@@ -41,6 +41,7 @@ from sarship.plotting import (
     plot_recall_by_size,
     save_crop_gallery,
 )
+from sarship.predict import cached_predictions, make_predictor, prediction_signature
 
 SCENES = ("inshore", "offshore")
 
@@ -67,33 +68,12 @@ def load_split(ds_dir: Path, split: str) -> list[dict]:
     return items
 
 
-def weights_signature(weights: Path) -> dict:
-    stat = weights.stat()
-    return {"weights": str(weights), "size": stat.st_size, "mtime": int(stat.st_mtime)}
-
-
 def predict_cached(weights: Path, items: list[dict], cfg: dict, cache: Path) -> dict:
     """{stem: {"boxes": [...], "scores": [...]}}; re-predicts only if the weights changed."""
-    signature = {**weights_signature(weights), "conf": cfg["analysis"]["predict_conf"],
-                 "iou": cfg["eval"]["iou_nms"], "imgsz": cfg["train"]["imgsz"]}
-    if cache.exists():
-        data = json.loads(cache.read_text())
-        if data.get("signature") == signature:
-            return data["predictions"]
-
-    from ultralytics import YOLO
-
-    model = YOLO(str(weights))
-    results = model.predict(source=[str(it["path"]) for it in items], conf=signature["conf"],
-                            iou=signature["iou"], imgsz=signature["imgsz"], stream=True,
-                            verbose=False)
-    preds = {}
-    for it, r in zip(items, results, strict=True):
-        preds[it["stem"]] = {"boxes": r.boxes.xyxy.cpu().numpy().round(2).tolist(),
-                             "scores": r.boxes.conf.cpu().numpy().round(5).tolist()}
-    cache.parent.mkdir(parents=True, exist_ok=True)
-    cache.write_text(json.dumps({"signature": signature, "predictions": preds}))
-    return preds
+    return cached_predictions(
+        cache, prediction_signature(weights, cfg), [it["stem"] for it in items],
+        lambda: [it["path"] for it in items], lambda: make_predictor(weights, cfg),
+    )
 
 
 def build_images(items: list[dict], preds: dict) -> list[ImageDetections]:
