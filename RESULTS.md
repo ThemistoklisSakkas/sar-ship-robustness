@@ -448,4 +448,35 @@ resolution 6× −0.026*. YOLO11s at JPEG q=5 produces 0.88 false alarms per ima
    are calibrated differently. This is threshold-dependent and not part of the rule; a fair
    operating-point comparison needs each model's threshold tuned on val to equal recall.
 
-**Deployment benchmark:** _pending (re-run after the benchmark fix)._
+**Deployment benchmark** (`runs/benchmark/benchmark.md`): Colab, Tesla T4 + Intel Xeon @ 2.00 GHz
+(2 threads); batch 1, imgsz 640, 100 test images after 10 warm-up runs; median ms.
+ONNX FP32, opset 18, simplified with onnxslim 0.1.99; ONNX Runtime 1.31.1 (CPU provider).
+
+| model | params (M) | GFLOPs* | .pt MB | .onnx MB | ONNX Δ test mAP@0.5:0.95 | PyTorch GPU inf / total | PyTorch CPU inf / total | ONNX RT CPU inf / total |
+|---|---|---|---|---|---|---|---|---|
+| robust_yolo11n | 2.60 | 6.6 | 5.3 | 10.2 | −0.0000 ✓ | 11.7 / 15.1 ms (54 FPS) | 90.8 / 94.7 ms (10 FPS) | 98.7 / 104.0 ms (9 FPS) |
+| robust_yolo11s | 9.43 | 21.7 | 18.3 | 36.2 | +0.0000 ✓ | 9.4 / 12.0 ms (66 FPS) | 244.5 / 248.8 ms (4 FPS) | 275.0 / 282.2 ms (3 FPS) |
+
+\* GFLOPs counted on the unfused network (Ultralytics reports 6.4 / 21.4 after layer fusion).
+
+**Reading:**
+1. **ONNX export is exact:** test mAP@0.5:0.95 identical to PyTorch to 4 decimals for both models.
+   The .onnx file is ~2× the .pt because Ultralytics stores `best.pt` weights in FP16 while the
+   export is FP32.
+2. **CPU latency scales with compute:** 11s is 2.7× slower than 11n (FLOP ratio 3.3×). This is the
+   relevant indicator for compute-limited edge hardware.
+3. **GPU batch-1 latency does not separate the models** (11s even measured faster, 9.4 vs 11.7 ms):
+   at batch 1 a T4 is far from saturated and the time is dominated by per-call overhead (Python,
+   kernel launches, clock ramp-up; 11n was also timed first). These GPU numbers are therefore not
+   evidence that 11s is faster; a fair GPU comparison needs randomised order, longer warm-up and,
+   ideally, a TensorRT engine timed with `trtexec` on the target device.
+4. **ONNX Runtime on this 2-thread Xeon is ~10% slower than PyTorch** (which uses oneDNN). ONNX is
+   kept for portability (the path to TensorRT on Jetson), not for CPU speed; on Intel CPUs
+   OpenVINO would be the natural backend.
+5. **Throughput in context:** a Sentinel-1 IW scene of ~25,000 × 16,000 px is ~1,000 chips of
+   640 × 640; YOLO11n needs ~15 s on the T4 or ~100 s on 2 CPU threads — far faster than new
+   scenes arrive. Speed is not the constraint for this use; accuracy under degradation is.
+
+**Phase 6 decision:** deploy **YOLO11n (robust recipe)**: same accuracy as 11s on clean and
+degraded data, better extrapolation to the most severe conditions, 3.6× smaller, 2.7× faster
+on CPU, and an exact FP32 ONNX export. TensorRT/Jetson steps: `docs/DEPLOYMENT.md`.
