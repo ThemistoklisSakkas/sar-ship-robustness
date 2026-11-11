@@ -405,4 +405,47 @@ severities on the native image (~1.2–1.3× scale difference).
 
 ### Results
 
-_TBD after training._
+**Training of `robust_yolo11s`** (9.41 M params, 21.4 GFLOPs fused): 100 epochs, best val
+mAP@0.5:0.95 0.754 at epoch 96. Unlike the nano runs, the curves show an early instability:
+val loss spikes to ~140 around epoch 4 and val mAP collapses briefly there and near epoch 20,
+then recovers; the end of training is smooth (val box loss minimal at epoch 100).
+
+**Ultralytics metrics** (conf 0.001):
+
+| subset | robust_yolo11n mAP@0.5 / 0.5:0.95 | robust_yolo11s mAP@0.5 / 0.5:0.95 |
+|---|---|---|
+| val | 0.991 / 0.739 | 0.992 / 0.750 |
+| test | 0.987 / 0.714 | 0.989 / 0.723 |
+| test/inshore | 0.964 / 0.657 | 0.968 / 0.674 |
+| test/offshore | 0.991 / 0.734 | 0.994 / 0.744 |
+
+**Operating point on clean test** (conf 0.25): robust_yolo11n TP 536 / FP 72 / FN 10;
+robust_yolo11s TP 532 / **FP 41** / FN 14 (precision 0.882 vs 0.928).
+
+**Paired comparison** (Δ = 11s − 11n, mAP@0.5:0.95, paired 95% CI, * = excludes 0):
+
+| group | conditions | Δ mAP@0.5:0.95 | Δ mAP@0.5 |
+|---|---|---|---|
+| clean | 1 | +0.004 [−0.007, +0.016] | +0.002 [−0.009, +0.008] |
+| seen (levels 1–4) | 16 | +0.002 [−0.004, +0.010] | −0.000 [−0.005, +0.004] |
+| held-out severity (level 5) | 4 | **−0.019 [−0.027, −0.010]*** | −0.016 [−0.027, −0.004]* |
+| held-out type (JPEG) | 5 | +0.004 [−0.004, +0.013] | −0.006 [−0.015, −0.001]* |
+| all degraded conditions | 25 | −0.001 [−0.007, +0.007] | −0.004 [−0.009, −0.000]* |
+
+Significant single conditions: blur σ=1 +0.010*, σ=1.5 +0.012*; blur σ=3 −0.041*,
+resolution 6× −0.026*. YOLO11s at JPEG q=5 produces 0.88 false alarms per image.
+
+**Selection (pre-registered rule):** YOLO11s gains neither ≥ 0.01 with CI above 0 on clean
+(+0.004, CI includes 0) nor on the degraded mean (−0.001) → **YOLO11n is kept** for deployment.
+
+**Reading:**
+1. 3.6× the parameters and 3.3× the FLOPs buy no measurable accuracy on this dataset: with
+   778 training images the nano model is not capacity-limited.
+2. The larger model extrapolates *worse* beyond the trained severity range (level 5: −0.019,
+   blur σ=3 −0.041, resolution 6× −0.026): more capacity fits the training distribution more
+   tightly and degrades less gracefully outside it. One seed per model — to be confirmed.
+3. YOLO11s raises fewer false alarms at the fixed 0.25 threshold (41 vs 72), i.e. its scores
+   are calibrated differently. This is threshold-dependent and not part of the rule; a fair
+   operating-point comparison needs each model's threshold tuned on val to equal recall.
+
+**Deployment benchmark:** _pending (re-run after the benchmark fix)._
