@@ -62,3 +62,9 @@ analysis:
     small: [0, 1024]       # < 32^2
     medium: [1024, 9216]   # 32^2 .. 96^2
     large: [9216, .inf]    # >= 96^2
+  predict_conf: 0.001    # cached test predictions keep (almost) every box, as for mAP
+  overlap_iou: 0.1       # "a box is near this ship" for the error reasons
+  border_margin_px: 2    # a box this close to the edge "touches the border"
+  bootstrap_resamples: 1000
+  bootstrap_ci: 0.95
+  gallery_n: 24          # crops per error gallery
