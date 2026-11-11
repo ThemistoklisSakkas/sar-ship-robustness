@@ -20,7 +20,7 @@ training set. This project quantifies that.
 - [x] 1. Data: SSDD download, licence, VOC→YOLO conversion, visual checks, statistics, leakage checks
 - [x] 2. Baseline training (YOLO11n), curves, held-out test evaluation
 - [x] 3. Error analysis by ship size, inshore/offshore, dense groups, false alarms
-- [ ] 4. Field-robustness study: degradation functions × severity → robustness curves
+- [x] 4. Field-robustness study: degradation functions × severity → robustness curves
 - [ ] 5. Robust training with degradation-aware augmentation
 - [ ] 6. Small vs larger model, ONNX export, inference timing
 - [ ] 7. Final write-up, figures, limitations
