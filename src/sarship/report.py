@@ -15,6 +15,7 @@ from pathlib import Path
 
 # (source path relative to the Drive project root, name used in the README)
 FIGURES = [
+    ("report_figures/00_hero.png", "00_hero.png"),  # written there by `sarship.hero`
     ("data/ssdd_yolo/figures/size_hist.png", "01_size_hist.png"),
     ("data/ssdd_yolo/figures/gt_test_inshore.png", "02_gt_test_inshore.png"),
     ("data/ssdd_yolo/figures/colour_images_raw.png", "03_colour_images_raw.png"),
@@ -37,9 +38,10 @@ def collect(drive_root: Path, out_dir: Path) -> tuple[list[str], list[str]]:
     out_dir.mkdir(parents=True, exist_ok=True)
     copied, missing = [], []
     for src, name in FIGURES:
-        path = drive_root / src
+        path, dst = drive_root / src, out_dir / name
         if path.exists():
-            shutil.copy2(path, out_dir / name)
+            if path.resolve() != dst.resolve():  # the hero figure is written in place
+                shutil.copy2(path, dst)
             copied.append(name)
         else:
             missing.append(src)
