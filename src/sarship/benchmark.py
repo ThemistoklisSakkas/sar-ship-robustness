@@ -223,7 +223,8 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "benchmark.md").write_text(md, encoding="utf-8")
     (out_dir / "benchmark.json").write_text(json.dumps({"env": env, "rows": rows}, indent=2))
-    backend = "pytorch_gpu" if all("pytorch_gpu" in r["timing"] for r in rows) else "onnx_cpu"
+    # batch-1 GPU latency is overhead-bound (phase 6), so the trade-off plot uses CPU time
+    backend = "pytorch_cpu"
     plot_accuracy_vs_speed(rows, out_dir / "accuracy_vs_speed.png", backend)
     print(md)
     print(f"Tables and figure in {out_dir}")
