@@ -60,6 +60,12 @@ robust_train:
     contrast: [0.3, 1.0] # factor
     resolution: [1.0, 4.0]
 
+# Phase 6: deployment benchmark (batch 1, single images, as a streaming sensor would feed them)
+benchmark:
+  n_images: 100          # timed test images per backend
+  warmup: 10             # untimed runs first (CUDA init, ONNX session, caches)
+  equivalence_tolerance: 0.002   # max |Δ mAP@0.5:0.95| allowed between PyTorch and ONNX
+
 eval:
   conf: 0.001            # keep almost all boxes: AP integrates over every threshold
   iou_nms: 0.7           # NMS IoU threshold (Ultralytics default)
