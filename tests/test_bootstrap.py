@@ -1,7 +1,8 @@
 import numpy as np
+import pytest
 
 from sarship.analysis.ap import ImageDetections, match_all
-from sarship.analysis.bootstrap import bootstrap_map
+from sarship.analysis.bootstrap import bootstrap_map, paired_bootstrap
 
 
 def make_images(n=40, seed=0):
@@ -41,3 +42,34 @@ def test_fewer_images_give_wider_interval():
     wide = bootstrap_map(tables[:20], n_resamples=300, seed=0)["map50_95"]
     narrow = bootstrap_map(tables, n_resamples=300, seed=0)["map50_95"]
     assert (wide["high"] - wide["low"]) > (narrow["high"] - narrow["low"])
+
+
+def shifted(images, px):
+    out = []
+    for im in images:
+        out.append(ImageDetections(stem=im.stem, scene=im.scene, width=im.width,
+                                   height=im.height, gt=im.gt, pred=im.pred + px,
+                                   scores=im.scores))
+    return out
+
+
+def test_paired_identical_models_give_zero():
+    t = match_all(make_images(30))
+    r = paired_bootstrap({"clean": (t, t)}, n_resamples=50, seed=0)
+    assert r["clean"]["map50_95"] == {"diff": 0.0, "low": 0.0, "high": 0.0}
+
+
+def test_paired_detects_consistent_improvement_and_groups():
+    images = make_images(40, seed=4)
+    worse = match_all(shifted(images, 3.0))   # model A: boxes off by 3 px
+    better = match_all(images)                # model B: original boxes
+    r = paired_bootstrap({"c1": (worse, better), "c2": (better, better)},
+                         groups={"mean": ["c1", "c2"]}, n_resamples=200, seed=1)
+    assert r["c1"]["map50_95"]["low"] > 0          # B is better, CI excludes 0
+    assert r["mean"]["map50_95"]["diff"] == pytest.approx(r["c1"]["map50_95"]["diff"] / 2)
+
+
+def test_paired_rejects_mismatched_images():
+    t = match_all(make_images(10))
+    with pytest.raises(ValueError):
+        paired_bootstrap({"c": (t, t[:5])}, n_resamples=5)

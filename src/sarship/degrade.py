@@ -94,3 +94,49 @@ def apply_degradation(
     if name not in functions:
         raise ValueError(f"unknown degradation {name!r}")
     return functions[name](img, value)
+
+
+class RandomDegradation:
+    """Training-time augmentation: with probability `p`, one degradation at a random severity.
+
+    `ranges` maps a degradation name to [low, high]. Speckle looks are sampled
+    log-uniformly (L in [2, 4] is as likely as L in [8, 16]: each halving of the looks
+    is one equal step of severity); the other parameters uniformly; JPEG quality as
+    an integer.
+    """
+
+    NAMES = ("speckle", "blur", "contrast", "resolution", "jpeg")
+
+    def __init__(self, ranges: dict[str, list[float]], p: float):
+        unknown = set(ranges) - set(self.NAMES)
+        if unknown:
+            raise ValueError(f"unknown degradations: {sorted(unknown)}")
+        if not 0 <= p <= 1:
+            raise ValueError("p must be in [0, 1]")
+        for name, (low, high) in ranges.items():
+            if low > high:
+                raise ValueError(f"{name}: low > high")
+        self.ranges = {k: (float(v[0]), float(v[1])) for k, v in ranges.items()}
+        self.names = list(self.ranges)
+        self.p = p
+
+    def sample(self, rng: np.random.Generator) -> tuple[str, float] | None:
+        if not self.names or rng.random() >= self.p:
+            return None
+        name = self.names[int(rng.integers(len(self.names)))]
+        low, high = self.ranges[name]
+        if name == "speckle":
+            value = float(np.exp(rng.uniform(np.log(low), np.log(high))))
+        elif name == "jpeg":
+            value = float(rng.integers(int(low), int(high) + 1))
+        else:
+            value = float(rng.uniform(low, high))
+        return name, value
+
+    def __call__(
+        self, img: np.ndarray, rng: np.random.Generator
+    ) -> tuple[np.ndarray, tuple[str, float] | None]:
+        choice = self.sample(rng)
+        if choice is None:
+            return img, None
+        return apply_degradation(choice[0], img, choice[1], rng), choice

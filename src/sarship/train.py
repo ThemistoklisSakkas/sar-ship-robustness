@@ -23,7 +23,23 @@ from sarship.seed import set_seed
 
 
 def default_run_name(cfg: dict) -> str:
-    return f"baseline_{Path(cfg['model']['weights']).stem}"
+    prefix = "robust" if cfg.get("robust_train", {}).get("enabled") else "baseline"
+    return f"{prefix}_{Path(cfg['model']['weights']).stem}"
+
+
+def trainer_class(cfg: dict):
+    """Custom trainer for degradation-aware runs, None (Ultralytics default) otherwise."""
+    if not cfg.get("robust_train", {}).get("enabled"):
+        return None
+    from sarship.robust_train import make_trainer
+
+    return make_trainer(cfg)
+
+
+def config_for_resume(cfg: dict, run_dir: Path) -> dict:
+    """A resumed run must use the configuration it was started with, not today's CLI."""
+    saved = run_dir / "config_used.yaml"
+    return yaml.safe_load(saved.read_text()) if saved.exists() else cfg
 
 
 def build_train_args(cfg: dict, data_yaml: Path, runs_root: Path, name: str) -> dict:
@@ -132,12 +148,14 @@ def train(
     set_seed(cfg["seed"], cfg["train"]["deterministic"])
     if resume:
         print(f"Resuming from {last}")
-        YOLO(str(last)).train(resume=True)
+        YOLO(str(last)).train(resume=True, trainer=trainer_class(config_for_resume(cfg, run_dir)))
     else:
         args = build_train_args(cfg, data_yaml, runs_root, name)
         run_dir.mkdir(parents=True, exist_ok=True)
         (run_dir / "config_used.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False))
-        YOLO(cfg["model"]["weights"]).train(**args)
+        if cfg.get("robust_train", {}).get("enabled"):
+            print("Degradation-aware training:", cfg["robust_train"])
+        YOLO(cfg["model"]["weights"]).train(trainer=trainer_class(cfg), **args)
 
     (run_dir / "run_info.json").write_text(json.dumps(environment_info(), indent=2))
     return run_dir
@@ -149,7 +167,8 @@ def main() -> None:
     parser.add_argument("--data-root", type=Path, required=True)
     parser.add_argument("--runs-root", type=Path, required=True)
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
-    parser.add_argument("--name", default=None, help="run name (default: baseline_<model>)")
+    parser.add_argument("--name", default=None,
+                        help="run name (default: baseline_<model> or robust_<model>)")
     parser.add_argument("--resume", action="store_true", help="continue from weights/last.pt")
     parser.add_argument("--overwrite", action="store_true",
                         help="start a fresh run even if the run folder already has weights")
