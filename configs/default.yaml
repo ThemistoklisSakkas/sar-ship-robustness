@@ -47,6 +47,19 @@ train:
     mosaic: 1.0
     mixup: 0.0
 
+# Phase 5: degradation-aware training. Enable for the robust run only:
+#   python -m sarship.train ... --set robust_train.enabled=true
+# Ranges stop at level 4 of the robustness ladder; level 5 and the whole JPEG
+# degradation are held out to test generalisation beyond what was trained on.
+robust_train:
+  enabled: false
+  p: 0.5                 # share of training samples that get one degradation
+  degradations:
+    speckle: [2, 16]     # looks, log-uniform
+    blur: [0.0, 2.0]     # sigma, px
+    contrast: [0.3, 1.0] # factor
+    resolution: [1.0, 4.0]
+
 eval:
   conf: 0.001            # keep almost all boxes: AP integrates over every threshold
   iou_nms: 0.7           # NMS IoU threshold (Ultralytics default)
@@ -79,3 +92,13 @@ robustness:
     jpeg:       {param: quality, values: [50, 30, 20, 10, 5]}
   bootstrap_resamples: 300  # CI on the overall curve only (time budget on CPU)
   relative_drop: 0.10       # "breaking point": first level losing >10% of clean mAP
+
+# Phase 5 decision rule, fixed BEFORE the robust model was trained (see RESULTS.md).
+# Primary metric: mAP@0.5:0.95 on the official test set. The robust model is "better" iff
+#   (1) on clean images it loses less than clean_tolerance (point estimate), and
+#   (2) the mean difference over all 25 degraded conditions has a paired 95% CI above 0.
+compare:
+  baseline: baseline_yolo11n
+  candidate: robust_yolo11n
+  clean_tolerance: 0.01
+  bootstrap_resamples: 1000

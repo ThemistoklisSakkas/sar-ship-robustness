@@ -293,7 +293,30 @@ degradation is applied alone; real conditions combine them.
 
 ## Phase 5 — Robust training
 
-_TBD_
+### Pre-registered plan (written and committed before the robust model was trained)
+
+- **Candidate:** `robust_yolo11n` — identical to the baseline (data, model, 100 epochs, seed 42,
+  all other augmentation) except one added augmentation: with p = 0.5 per training sample, one
+  degradation drawn uniformly from {speckle L ∈ [2, 16] log-uniform, blur σ ∈ [0, 2],
+  contrast ∈ [0.3, 1], resolution ∈ [1, 4]×}. It is applied to the final augmented 640×640
+  training image (after mosaic/affine/flips), so its severity is defined on that canvas.
+- **Held out for generalisation:** the whole JPEG degradation, and level 5 (the most severe) of
+  every trained degradation.
+- **Model selection:** Ultralytics `best.pt` on the clean validation set, as for the baseline.
+- **Primary metric:** mAP@0.5:0.95 on the official test set; all differences are paired
+  bootstrap 95% CIs on the same images (1000 resamples, seed 42).
+- **Decision rule:** the robust model is called better iff
+  1. clean test mAP@0.5:0.95 drops by less than 0.01 (point estimate), and
+  2. the mean difference over all 25 degraded conditions has a paired 95% CI entirely above 0.
+- **Reported regardless of the verdict:** per-condition differences, seen levels vs held-out
+  level 5 vs held-out JPEG, inshore/offshore.
+- **Expectation:** large gains on seen degradations, smaller on level 5, little or none on JPEG,
+  and a clean-set change within ±0.01. A single seed per model limits the conclusion: training
+  variance between seeds is not measured.
+
+### Results
+
+_TBD after training._
 
 ## Phase 6 — Model comparison & deployment
 
