@@ -179,6 +179,12 @@ Speed is not the constraint here; accuracy under degradation is. The TensorRT/Je
 - **Small inshore subset** (46 images): inshore differences smaller than ~0.06 are not resolvable.
 - **No empty scenes** in SSDD: false alarms on ship-free sea and land are under-tested.
 - **Latency on Colab hardware only:** batch-1 GPU timings are overhead-bound and not Jetson numbers.
+- **Licensing for operational use:** this repository's code is MIT, but it depends on
+  [Ultralytics YOLO](https://github.com/ultralytics/ultralytics), which is licensed under
+  **AGPL-3.0**. A commercial or operational product built on it must either release its own
+  source under AGPL-3.0 or obtain an Ultralytics Enterprise License. The robustness methodology
+  (degradation suite, paired evaluation, decision rules) is detector-agnostic and can be applied
+  unchanged to a detector under a permissive licence (e.g. Apache-2.0).
 
 ## Future work
 
