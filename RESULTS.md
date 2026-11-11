@@ -1,7 +1,21 @@
 # Results log
 
 Every metric produced in this project is recorded here, with the config and
-environment that produced it.
+environment that produced it. Sections are in the order the work was done; decision rules
+for phases 5 and 6 were committed before the corresponding training runs.
+
+## Summary
+
+| phase | key result |
+|---|---|
+| 1 Data | SSDD official release, 2,587 ships; 12 train/test byte-duplicates removed from train; 25 pseudo-colour images converted to grayscale; conversion cross-checked against the release's COCO files (exact match) |
+| 2 Baseline | YOLO11n test mAP@0.5 0.987 / mAP@0.5:0.95 0.709 (Ultralytics); no overfitting; same-seed rerun reproduced val metrics to 3 decimals |
+| 3 Errors | own COCO-style mAP 0.982 / 0.713, CI [0.685, 0.740]; inshore 0.645 vs offshore 0.739 (CIs disjoint); 7 of 12 misses are merges/localisation at berths, not threshold |
+| 4 Robustness | worst-level loss of mAP@0.5:0.95: resolution −49%, blur −39%, speckle −33%, JPEG −18%, contrast −16%; speckle fails silently (recall 0.62, fewer FP) |
+| 5 Robust training | +0.050 [+0.042, +0.057] over 25 degraded conditions, clean −0.002 [−0.011, +0.008] → better (pre-registered); held-out JPEG +0.014; clean FP at conf 0.25: 56 → 72 |
+| 6 Model / deploy | YOLO11s not better (clean +0.004, degraded −0.001, level 5 −0.019) → robust YOLO11n selected; ONNX FP32 exact; CPU 95 vs 249 ms per image |
+
+Limitations are collected in the README.
 
 ## Environment
 
