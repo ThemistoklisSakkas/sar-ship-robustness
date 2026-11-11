@@ -130,6 +130,8 @@ Verdict by the pre-registered rule: **better**. The honest reading:
 ## Model size and deployment
 
 <p align="center"><img src="docs/figures/14_accuracy_vs_speed.png" width="60%"></p>
+<p align="center"><sub>CPU latency (2 threads, batch 1). The y-axis is zoomed: the vertical gaps
+between the two models are inside their paired 95% CIs.</sub></p>
 
 YOLO11s (3.6× the parameters) gains nothing measurable (clean +0.004, degraded −0.001; both
 CIs include 0), is worse at the most severe level (−0.019), and is 2.7× slower on CPU, so
