@@ -1,12 +1,35 @@
 # SAR Ship Detection & Field-Robustness Study
 
-A YOLO ship detector for satellite SAR imagery, a measurement of how it fails when image
-quality drops in the field (speckle, blur, low contrast, coarser resolution, compression),
-and a degradation-aware training recipe that makes it markedly more robust at no cost on
-clean images — with every claim backed by paired confidence intervals and decision rules
-committed to git *before* the experiments ran.
+**Problem.** Satellite radar (SAR) finds ships day and night, through cloud, including "dark"
+vessels with AIS switched off. But detectors are tested on clean images, while field images
+are noisier, blurrier and coarser.
+**Method.** A YOLO11 detector on the SSDD dataset, stress-tested under 25 realistic degradations,
+then retrained with degradation-aware augmentation; every comparison uses paired confidence
+intervals and decision rules committed to git before the experiments.
+**Result.** Under heavy speckle the baseline drops from 0.71 to 0.48 mAP@0.5:0.95; the
+degradation-aware model keeps 0.65, gains +0.050 on average over all degraded conditions and
+loses nothing on clean images. It runs at ~10 images/s on two CPU threads.
 
-Every number is in [RESULTS.md](RESULTS.md); deployment notes in
+<p align="center"><img src="docs/figures/00_hero.png" width="85%"
+  alt="The same SAR chip, clean and with heavy speckle, as seen by the baseline and by the degradation-aware model"></p>
+
+<!-- DEMO VIDEO: add the YouTube/LinkedIn link here once it is uploaded -->
+
+**Key result: accuracy vs degradation severity, baseline (blue) vs degradation-aware (orange)**
+
+<p align="center"><img src="docs/figures/12_robust_vs_baseline.png" width="95%"
+  alt="mAP versus severity for five degradations, baseline vs degradation-aware model"></p>
+
+## Quick start
+
+```bash
+git clone https://github.com/ThemistoklisSakkas/sar-ship-robustness.git
+cd sar-ship-robustness
+pip install -r requirements-dev.txt && pytest          # 130 unit tests, CPU only
+```
+
+Full pipeline on Google Colab: open the notebooks in `notebooks/` in order (00 → 08); see
+[Reproduce](#reproduce). Every number is in [RESULTS.md](RESULTS.md); deployment notes in
 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Results at a glance
@@ -109,7 +132,7 @@ JPEG (bandwidth-limited datalink).
 With p = 0.5, one random degradation (speckle, blur, contrast, resolution) up to severity
 level 4 is applied to each training sample. JPEG and level 5 are held out to test generalisation.
 
-<p align="center"><img src="docs/figures/12_robust_vs_baseline.png" width="90%"></p>
+(Curves per degradation: the key-result plot at the top of this page.)
 
 | group (Δ mAP@0.5:0.95, robust − baseline) | paired 95% CI |
 |---|---|
@@ -183,7 +206,7 @@ Colab, in order (each notebook is thin; the logic is in `src/sarship`):
 
 | notebook | runtime | does |
 |---|---|---|
-| `00_colab_setup` | any | Drive, clone (private repo via `GH_TOKEN` secret), install, tests |
+| `00_colab_setup` | any | Drive, clone, install, tests |
 | `01_data` | CPU | download SSDD, `sarship.data.prepare` (YOLO format, splits, checks, figures) |
 | `02_baseline` | T4 | `sarship.train`, `sarship.evaluate` |
 | `03_error_analysis` | CPU | `sarship.analysis.run` |
@@ -191,6 +214,7 @@ Colab, in order (each notebook is thin; the logic is in `src/sarship`):
 | `05_robust_training` | T4 | robust training, `sarship.compare` |
 | `06_model_comparison` | T4 | YOLO11s, `sarship.compare`, `sarship.benchmark` |
 | `07_report` | CPU | `sarship.report` (collects the README figures) |
+| `08_demo` | CPU | `sarship.hero` (README hero figure) and a live clean-vs-noisy run for the demo |
 
 Training reads a local copy of the data (Drive reads are ~100× slower); results go to Drive.
 Seeds and every parameter are in `configs/default.yaml`; environment versions are in RESULTS.md.
@@ -204,8 +228,8 @@ src/sarship/
   analysis/            IoU matching, COCO-style AP, bootstrap / paired bootstrap, error taxonomy
   degrade.py           the five field degradations + random training augmentation
   robust_train.py      hook into the Ultralytics trainer (survives close_mosaic and resume)
-  train.py, evaluate.py, robustness.py, compare.py, benchmark.py, report.py
+  train.py, evaluate.py, robustness.py, compare.py, benchmark.py, report.py, hero.py
 notebooks/             thin Colab notebooks, one per phase
-tests/                 128 pytest tests (no GPU or Ultralytics needed)
+tests/                 130 pytest tests (no GPU or Ultralytics needed)
 docs/                  dataset licence, deployment notes, README figures
 ```
