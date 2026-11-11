@@ -388,4 +388,21 @@ severities on the native image (~1.2–1.3× scale difference).
 
 ## Phase 6 — Model comparison & deployment
 
-_TBD_
+### Pre-registered plan (written and committed before YOLO11s was trained)
+
+- **Candidate:** `robust_yolo11s` — YOLO11s (≈9.4 M params vs 2.6 M) trained with exactly the
+  winning phase-5 recipe (robust augmentation, 100 epochs, seed 42, same data).
+- **Reference:** `robust_yolo11n`.
+- **Accuracy comparison:** `sarship.compare` with baseline = robust_yolo11n, candidate =
+  robust_yolo11s; paired bootstrap on the same test images, clean + 25 degraded conditions.
+- **Selection rule:** YOLO11s is preferred only if it is clearly more accurate — on clean test
+  OR on the mean over all degraded conditions, its mAP@0.5:0.95 gain is ≥ 0.01 with a paired
+  95% CI entirely above 0. Otherwise YOLO11n is kept, because it is the cheaper model to
+  deploy on an edge device. Speed and size are reported for both regardless.
+- **Deployment checks for the selected model:** ONNX (FP32) export must reproduce the PyTorch
+  test mAP@0.5:0.95 within 0.002; latency reported at batch 1 on the Colab GPU (T4) and CPU,
+  PyTorch vs ONNX Runtime.
+
+### Results
+
+_TBD after training._
