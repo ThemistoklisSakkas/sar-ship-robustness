@@ -22,3 +22,7 @@ SOFTWARE.
 
 The SSDD dataset is not part of this repository and is not covered by this licence;
 see docs/DATA_LICENSE.md for its terms and the required citation.
+
+Third-party dependency: Ultralytics YOLO (https://github.com/ultralytics/ultralytics) is not
+part of this repository and is licensed under AGPL-3.0. Software that incorporates it is subject
+to the AGPL-3.0 terms unless an Ultralytics Enterprise License is obtained.

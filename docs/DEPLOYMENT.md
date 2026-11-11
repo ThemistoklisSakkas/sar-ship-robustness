@@ -8,6 +8,15 @@
   0.002 (`python -m sarship.benchmark`).
 - Batch-1 latency on the Colab T4 GPU and CPU. These numbers are **not** Jetson numbers.
 
+## Licensing before deployment
+
+The detector is trained and run with Ultralytics YOLO, licensed under **AGPL-3.0**. Before any
+commercial or operational deployment, either obtain an Ultralytics Enterprise License or accept
+the AGPL-3.0 obligations (release of the source of the deployed system). Alternatively, retrain
+a detector under a permissive licence (e.g. Apache-2.0); the degradation suite, the paired
+evaluation and the decision rules in this repository apply to it unchanged. Exported models
+(ONNX, TensorRT engines) derived from Ultralytics models should be checked against the same terms.
+
 ## Moving to a Jetson (Orin Nano / NX / AGX) with TensorRT
 
 1. **Build the engine on the target device.** A TensorRT engine is specific to the GPU
