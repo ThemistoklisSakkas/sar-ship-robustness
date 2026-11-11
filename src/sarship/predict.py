@@ -24,17 +24,18 @@ def prediction_signature(weights: Path, cfg: dict) -> dict:
             "iou": cfg["eval"]["iou_nms"], "imgsz": cfg["train"]["imgsz"]}
 
 
-def make_predictor(weights: Path, cfg: dict) -> Predictor:
-    """Ultralytics-backed predictor (imported lazily so tests can run without it)."""
+def make_predictor(weights: Path, cfg: dict, device: str | None = None) -> Predictor:
+    """Ultralytics-backed predictor for .pt or .onnx weights (imported lazily for tests)."""
     from ultralytics import YOLO
 
-    model = YOLO(str(weights))
+    model = YOLO(str(weights), task="detect")
+    extra = {} if device is None else {"device": device}
 
     def predict(paths: list[Path]) -> list[dict[str, list]]:
         results = model.predict(source=[str(p) for p in paths],
                                 conf=cfg["analysis"]["predict_conf"],
                                 iou=cfg["eval"]["iou_nms"], imgsz=cfg["train"]["imgsz"],
-                                stream=True, verbose=False)
+                                stream=True, verbose=False, **extra)
         return [{"boxes": r.boxes.xyxy.cpu().numpy().round(2).tolist(),
                  "scores": r.boxes.conf.cpu().numpy().round(5).tolist()} for r in results]
 
