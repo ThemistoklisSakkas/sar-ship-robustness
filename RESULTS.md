@@ -130,7 +130,83 @@ a GPU. The run above is a clean, uninterrupted 100-epoch run.
 
 ## Phase 3 — Error analysis
 
-_TBD_
+Model `baseline_yolo11n/best.pt` on the official test set. Predictions cached at conf 0.001;
+mAP computed by our own COCO-style implementation (`analysis/ap.py`, 101-point interpolation,
+COCO size-range ignore rules), sizes on the original image scale.
+
+**Implementation check** against Ultralytics on the same test set: mAP@0.5 0.982 vs 0.987,
+mAP@0.5:0.95 0.713 vs 0.709 (differences ≤ 0.005: interpolation/integration details, matching
+across IoU thresholds, and letterboxing in `val` vs `predict`).
+
+**mAP by scene and ship size:**
+
+| subset | ships | mAP@0.5 | mAP@0.5:0.95 |
+|---|---|---|---|
+| all | 546 | 0.982 | 0.713 |
+| all / small | 339 | 0.978 | 0.677 |
+| all / medium | 188 | 0.986 | 0.774 |
+| all / large | 19 | 1.000 | 0.708 |
+| inshore | 172 | 0.948 | 0.645 |
+| inshore / small | 100 | 0.936 | **0.599** |
+| inshore / medium | 62 | 0.962 | 0.730 |
+| inshore / large | 10 | 1.000 | 0.651 |
+| offshore | 374 | 0.989 | 0.739 |
+| offshore / small | 239 | 0.989 | 0.707 |
+| offshore / medium | 126 | 0.998 | 0.792 |
+| offshore / large | 9 | 1.000 | 0.764 |
+
+**Bootstrap 95% CIs** (1000 resamples of images, seed 42):
+
+| subset | images | mAP@0.5 | mAP@0.5:0.95 |
+|---|---|---|---|
+| all | 232 | 0.982 [0.968, 0.993] | 0.713 [0.685, 0.740] |
+| inshore | 46 | 0.948 [0.909, 0.982] | 0.645 [0.595, 0.711] |
+| offshore | 186 | 0.989 [0.984, 1.000] | 0.739 [0.716, 0.765] |
+
+**Operating point** (conf ≥ 0.25, IoU ≥ 0.5) — recall: offshore 371/374 (0.992), inshore
+163/172 (0.948); isolated ships 486/494 (0.984), crowded ships (box overlaps another ship's box)
+48/52 (0.923); small 331/339, medium 184/188, large 19/19.
+
+| scene | TP | FN merged | FN localisation | FN low score | FN missed |
+|---|---|---|---|---|---|
+| inshore | 163 | 2 | 4 | 3 | 0 |
+| offshore | 371 | 0 | 0 | 2 | 1 |
+
+| scene | FP duplicate | FP merged box | FP localisation | FP border | FP background |
+|---|---|---|---|---|---|
+| inshore | 8 | 1 | 8 | 6 | 19 |
+| offshore | 0 | 0 | 0 | 5 | 9 |
+
+**Findings:**
+1. **The coast is the problem, not ship size.** Offshore recall is 99.2% and offshore small ships
+   still reach mAP@0.5 0.989. Inshore loses ~10 points of mAP@0.5:0.95; the inshore/offshore
+   CIs for mAP@0.5:0.95 do not overlap ([0.595, 0.711] vs [0.716, 0.765]), so the gap is real.
+2. **Small ships are found but boxed loosely:** mAP@0.5 barely changes with size, mAP@0.5:0.95
+   drops from 0.774 (medium) to 0.677 (small) — the few-pixel IoU sensitivity.
+   The large-ship value (0.708) rests on 19 ships and is too noisy to interpret.
+3. **Only 5 of the 12 misses would be recovered by a lower threshold** (low score). The other 6
+   inshore misses are merged with a neighbour or boxed with the wrong extent at dense berths —
+   a box/NMS problem, not a confidence problem. One offshore ship is truly missed.
+4. **17 of the 42 inshore false alarms are box-quality errors next to real ships** (duplicates,
+   wrong extent, one box over two ships), all at berths; the rest are clutter (19) and
+   cut-off objects at the image border (6).
+5. **Uncertainty:** with this test set, mAP@0.5:0.95 is known to about ±0.03 overall and
+   ±0.06 for inshore. Phase 5 improvements smaller than that are not resolvable on inshore.
+
+**Visual review of the most confident "false alarms"** (`analysis/false_alarms_top.png`,
+judged by eye, no ground truth available):
+- Several open-water detections (e.g. 000379 0.63, 000589 0.67, 000211 0.53, 000771 0.58) are
+  compact or elongated bright targets that look like small vessels: likely **unlabelled ships**.
+- **Border** detections (000739, 000379, 001069) sit on ships cut off by the image edge, which
+  the annotators did not label.
+- 000391 (0.81): the model boxed a ship *with its azimuth smear*, the annotation only the bright
+  hull point → IoU < 0.1, so one ship becomes one FP plus one FN. Annotation convention, not
+  detector failure.
+- On land/coast (001019, 001159, 000619 — a pier-like line) the detections are real clutter.
+- The test labels are **not** edited: relabelling the test set after seeing the model's output
+  would bias the evaluation. Consequence: measured precision is a pessimistic estimate.
+  Operationally these are exactly the "SAR contact without AIS" candidates that AIS
+  correlation would resolve.
 
 ## Phase 4 — Robustness of the baseline
 
