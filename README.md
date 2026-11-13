@@ -3,7 +3,7 @@
 **Problem.** Satellite radar (SAR) finds ships day and night, through cloud, including "dark"
 vessels with AIS switched off. But detectors are tested on clean images, while field images
 are noisier, blurrier and coarser.
-**Method.** A YOLO11 detector on the SSDD dataset, stress-tested under 25 realistic degradations,
+**Method.** An Ultralytics YOLO11 detector on the SSDD dataset, stress-tested under 25 realistic degradations,
 then retrained with degradation-aware augmentation; every comparison uses paired confidence
 intervals and decision rules committed to git before the experiments.
 **Result.** Under heavy speckle the baseline drops from 0.71 to 0.48 mAP@0.5:0.95; the
@@ -180,7 +180,7 @@ Speed is not the constraint here; accuracy under degradation is. The TensorRT/Je
 - **No empty scenes** in SSDD: false alarms on ship-free sea and land are under-tested.
 - **Latency on Colab hardware only:** batch-1 GPU timings are overhead-bound and not Jetson numbers.
 - **Licensing for operational use:** this repository's code is MIT, but it depends on
-  [Ultralytics YOLO](https://github.com/ultralytics/ultralytics), which is licensed under
+  [Ultralytics YOLO11](https://github.com/ultralytics/ultralytics), which is licensed under
   **AGPL-3.0**. A commercial or operational product built on it must either release its own
   source under AGPL-3.0 or obtain an Ultralytics Enterprise License. The robustness methodology
   (degradation suite, paired evaluation, decision rules) is detector-agnostic and can be applied
