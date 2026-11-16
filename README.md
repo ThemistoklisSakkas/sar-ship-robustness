@@ -193,8 +193,20 @@ Speed is not the constraint here; accuracy under degradation is. The TensorRT/Je
 3. Operating-point comparison at equal recall, with each model's threshold tuned on validation.
 4. Oriented boxes (RBox-SSDD) for dense berths and length estimation; a sea-land mask
    (SL-SSDD) against coastal clutter.
-5. An input-quality gate (resolution, equivalent number of looks) and AIS correlation to
-   estimate recall in operation.
+5. **An input-quality gate**, so the system can say "this image is outside what I was tested
+   on" instead of failing silently. Planned design:
+   - inputs: image-quality estimates such as resolution and equivalent number of looks;
+   - calibration anchored to a **maximum acceptable miss rate** among accepted images (the
+     quantity a hazard analysis cares about), not to a fixed rejection rate; the threshold is
+     set so that the **upper confidence bound** on the miss rate (e.g. Clopper–Pearson), not
+     just the point estimate, stays under the target, in the spirit of conformal risk control;
+   - calibrated on SSDD, then validated on **HRSID** (real cross-sensor shift) before it is
+     trusted, reporting how far the threshold moves between datasets;
+   - evaluated as a risk–coverage trade-off: detection performance kept on accepted images
+     versus the share of images rejected;
+   - in operation, the **rejection rate** is tracked as the workload cost and as an early
+     warning that inputs are drifting away from the calibration data;
+   - combined with AIS correlation to estimate recall in operation.
 6. TensorRT FP16/INT8 on a Jetson, re-validated with the same paired comparison.
 
 ## Reproduce
